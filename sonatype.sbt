@@ -8,6 +8,13 @@ pomIncludeRepository := { _ =>
   false
 }
 
+publishTo := Some(
+  if (isSnapshot.value)
+    Opts.resolver.sonatypeSnapshots
+  else
+    Opts.resolver.sonatypeStaging
+)
+
 pomExtra in Global := {
   <url>https://github.com/yannick-cw/http4s-prometheus</url>
     <licenses>

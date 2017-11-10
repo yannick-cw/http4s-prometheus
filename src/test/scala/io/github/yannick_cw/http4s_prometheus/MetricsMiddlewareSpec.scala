@@ -65,7 +65,9 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
     assertThrows[Exception](
       metrics.collect("timingThrowTest", failingTestService).orNotFound(testRequest).unsafeRunSync())
     registry
-      .getSampleValue("http_requests_duration_seconds_sum", Array("service", "status"), Array("timingThrowTest", "500"))
+      .getSampleValue("http_requests_duration_seconds_sum",
+                      Array("service", "status"),
+                      Array("timingThrowTest", "500"))
       .toDouble should be > 0.0
   }
 
