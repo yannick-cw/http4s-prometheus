@@ -10,7 +10,7 @@ import cats.implicits._
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
-class MetricsMiddleware(serviceName: String, bucketsInSeconds: List[Double], registry: CollectorRegistry) {
+class MetricsMiddleware(bucketsInSeconds: List[Double], registry: CollectorRegistry) {
 
   private val httpRequestsTotal = Counter
     .build()
@@ -28,33 +28,32 @@ class MetricsMiddleware(serviceName: String, bucketsInSeconds: List[Double], reg
       .buckets(bucketsInSeconds: _*)
       .register(registry)
 
-  private def collectMetrics[F[_]: Effect](startTime: FiniteDuration, code: String): Unit = {
+  private def collectMetrics[F[_]: Effect](startTime: FiniteDuration, code: String, serviceName: String): Unit = {
     val finishTime = Duration.fromNanos(System.nanoTime())
     httpRequestsTotal.labels(serviceName, code).inc()
     responseTime.labels(serviceName, code).observe((finishTime - startTime).toUnit(TimeUnit.SECONDS))
   }
 
-  def collect[F[_]: Effect](service: HttpService[F]): HttpService[F] =
+  def collect[F[_]: Effect](serviceName: String, service: HttpService[F]): HttpService[F] =
     Kleisli { req =>
       val startTime = Duration.fromNanos(System.nanoTime())
       OptionT(
         service(req)
           .map { response =>
-            collectMetrics(startTime, response.status.code.toString)
+            collectMetrics(startTime, response.status.code.toString, serviceName)
             response
           }
           .value
           .adaptError {
             case e =>
-              collectMetrics(startTime, "500")
+              collectMetrics(startTime, "500", serviceName)
               e
           })
     }
 }
 object MetricsMiddleware {
-  def apply(serviceName: String,
-            bucketsInSeconds: List[Double] = List(0.01, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25,
+  def apply(bucketsInSeconds: List[Double] = List(0.01, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25,
               0.275, 0.3, 0.325, 0.35, 0.4, 0.45, 0.5, 0.6, 0.7, 1, 2, 3, 5, 10),
             registry: CollectorRegistry = CollectorRegistry.defaultRegistry): MetricsMiddleware =
-    new MetricsMiddleware(serviceName, bucketsInSeconds, registry)
+    new MetricsMiddleware(bucketsInSeconds, registry)
 }

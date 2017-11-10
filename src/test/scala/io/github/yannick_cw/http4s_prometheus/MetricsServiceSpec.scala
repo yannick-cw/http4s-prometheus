@@ -15,12 +15,12 @@ class MetricsServiceSpec extends FlatSpec with Http4sDsl[IO] with Matchers {
   }
   val testRequest: Request[IO] = Request[IO](Method.GET, Uri.uri("/"))
 
-  val metrics = MetricsMiddleware("collector", registry = registry)
+  val metrics = MetricsMiddleware(registry = registry)
 
   behavior of "MetricsService"
 
   it should "return metrics as text" in {
-    metrics.collect(testService).orNotFound(testRequest).unsafeRunSync()
+    metrics.collect("collector", testService).orNotFound(testRequest).unsafeRunSync()
 
     MetricsService[IO](registry)
       .orNotFound(testRequest)

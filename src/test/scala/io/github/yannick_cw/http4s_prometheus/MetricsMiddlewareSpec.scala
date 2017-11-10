@@ -13,7 +13,7 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
 
   override protected def afterEach(): Unit = CollectorRegistry.defaultRegistry.clear()
 
-  val testService: HttpService[IO] = HttpService[IO] {
+  def testService: HttpService[IO] = HttpService[IO] {
     case GET -> Root => Ok()
   }
 
@@ -27,10 +27,10 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
     val registry = new CollectorRegistry
 
     val requests = 25
-    val metrics  = MetricsMiddleware("countTest", registry = registry)
+    val metrics  = MetricsMiddleware(registry = registry)
     List
       .fill(requests)(testRequest)
-      .traverse(metrics.collect(testService).orNotFound(_))
+      .traverse(metrics.collect("countTest", testService).orNotFound(_))
       .unsafeRunSync()
 
     registry.getSampleValue("http_requests_total", Array("service", "status"), Array("countTest", "200")) shouldBe requests.toDouble
@@ -39,18 +39,18 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
   it should "count request that fail" in {
     val registry = new CollectorRegistry
 
-    val metrics = MetricsMiddleware("countTest", registry = registry)
+    val metrics = MetricsMiddleware(registry = registry)
 
-    assertThrows[Exception](metrics.collect(failingTestService).orNotFound(testRequest).unsafeRunSync())
+    assertThrows[Exception](metrics.collect("countTest", failingTestService).orNotFound(testRequest).unsafeRunSync())
     registry.getSampleValue("http_requests_total", Array("service", "status"), Array("countTest", "500")) shouldBe 1.0
   }
 
   it should "measure a response time for a request" in {
     val registry = new CollectorRegistry
 
-    val metrics = MetricsMiddleware("timingTest", registry = registry)
+    val metrics = MetricsMiddleware(registry = registry)
 
-    metrics.collect(testService).orNotFound(testRequest).unsafeRunSync()
+    metrics.collect("timingTest", testService).orNotFound(testRequest).unsafeRunSync()
 
     registry
       .getSampleValue("http_requests_duration_seconds_sum", Array("service", "status"), Array("timingTest", "200"))
@@ -60,13 +60,24 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
   it should "measure a response time if the service throws an exception" in {
     val registry = new CollectorRegistry
 
-    val metrics = MetricsMiddleware("timingThrowTest", registry = registry)
+    val metrics = MetricsMiddleware(registry = registry)
 
-    assertThrows[Exception](metrics.collect(failingTestService).orNotFound(testRequest).unsafeRunSync())
+    assertThrows[Exception](
+      metrics.collect("timingThrowTest", failingTestService).orNotFound(testRequest).unsafeRunSync())
     registry
-      .getSampleValue("http_requests_duration_seconds_sum",
-                      Array("service", "status"),
-                      Array("timingThrowTest", "500"))
+      .getSampleValue("http_requests_duration_seconds_sum", Array("service", "status"), Array("timingThrowTest", "500"))
       .toDouble should be > 0.0
+  }
+
+  it should "count request on multiple services" in {
+    val registry = new CollectorRegistry
+
+    val metrics = MetricsMiddleware(registry = registry)
+
+    metrics.collect("service1", testService).orNotFound(testRequest).unsafeRunSync()
+    metrics.collect("service2", testService).orNotFound(testRequest).unsafeRunSync()
+
+    registry.getSampleValue("http_requests_total", Array("service", "status"), Array("service1", "200")) shouldBe 1.0
+    registry.getSampleValue("http_requests_total", Array("service", "status"), Array("service2", "200")) shouldBe 1.0
   }
 }
