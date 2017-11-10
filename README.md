@@ -2,6 +2,16 @@
 
 Provides instumentation to wrap http4s `HttpService[F]` with a prometheus metric collecting middleware.
 
+## Add to sbt
+
+[![Build Status](https://travis-ci.org/yannick-cw/http4s-prometheus.svg?branch=master)](https://travis-ci.org/yannick-cw/http4s-prometheus)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.yannick-cw/http4s-prometheus/badge.svg)](https://mvnrepository.com/artifact/io.github.yannick-cw/http4s-prometheus_2.12)
+
+
+```scala
+   "io.github.yannick-cw" %% "http4s-prometheus"   % x.x.x
+```
+
 ### Usage
 
 Wrap services you want to monitor and provide a metrics service endpoint for prometheus:
