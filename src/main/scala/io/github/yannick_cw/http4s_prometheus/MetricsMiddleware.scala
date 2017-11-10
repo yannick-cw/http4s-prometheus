@@ -19,14 +19,13 @@ class MetricsMiddleware(bucketsInSeconds: List[Double], registry: CollectorRegis
     .labelNames("service", "status")
     .register(registry)
 
-  private val responseTime =
-    Histogram
-      .build()
-      .name("http_requests_duration_seconds")
-      .help("Histogram of the response time of http requests in Seconds")
-      .labelNames("service", "status")
-      .buckets(bucketsInSeconds: _*)
-      .register(registry)
+  private val responseTime = Histogram
+    .build()
+    .name("http_requests_duration_seconds")
+    .help("Histogram of the response time of http requests in Seconds")
+    .labelNames("service", "status")
+    .buckets(bucketsInSeconds: _*)
+    .register(registry)
 
   private def collectMetrics[F[_]: Effect](startTime: FiniteDuration, code: String, serviceName: String): Unit = {
     val finishTime = Duration.fromNanos(System.nanoTime())
