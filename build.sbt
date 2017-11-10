@@ -7,7 +7,8 @@ lazy val root = (project in file(".")).settings(
       scalaVersion := "2.12.4",
       version := "0.1.0-SNAPSHOT",
       scalafmtVersion := "1.0.0-RC4",
-      scalafmtOnCompile := true
+      scalafmtOnCompile := true,
+      scalacOptions := compilerFlags
     )),
   name := "http4s-prometheus",
   libraryDependencies ++= Seq(http4s, scalaTest % Test) ++ prometheus
