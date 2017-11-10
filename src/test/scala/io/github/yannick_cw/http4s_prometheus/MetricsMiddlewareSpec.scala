@@ -30,7 +30,7 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
     val metrics  = MetricsMiddleware("countTest", registry = registry)
     List
       .fill(requests)(testRequest)
-      .traverse(metrics.collectFor(testService).orNotFound(_))
+      .traverse(metrics.collect(testService).orNotFound(_))
       .unsafeRunSync()
 
     registry.getSampleValue("http_requests_total", Array("service", "status"), Array("countTest", "200")) shouldBe requests.toDouble
@@ -41,7 +41,7 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
 
     val metrics = MetricsMiddleware("countTest", registry = registry)
 
-    assertThrows[Exception](metrics.collectFor(failingTestService).orNotFound(testRequest).unsafeRunSync())
+    assertThrows[Exception](metrics.collect(failingTestService).orNotFound(testRequest).unsafeRunSync())
     registry.getSampleValue("http_requests_total", Array("service", "status"), Array("countTest", "500")) shouldBe 1.0
   }
 
@@ -50,7 +50,7 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
 
     val metrics = MetricsMiddleware("timingTest", registry = registry)
 
-    metrics.collectFor(testService).orNotFound(testRequest).unsafeRunSync()
+    metrics.collect(testService).orNotFound(testRequest).unsafeRunSync()
 
     registry
       .getSampleValue("http_requests_duration_seconds_sum", Array("service", "status"), Array("timingTest", "200"))
@@ -62,7 +62,7 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
 
     val metrics = MetricsMiddleware("timingThrowTest", registry = registry)
 
-    assertThrows[Exception](metrics.collectFor(failingTestService).orNotFound(testRequest).unsafeRunSync())
+    assertThrows[Exception](metrics.collect(failingTestService).orNotFound(testRequest).unsafeRunSync())
     registry
       .getSampleValue("http_requests_duration_seconds_sum",
                       Array("service", "status"),
