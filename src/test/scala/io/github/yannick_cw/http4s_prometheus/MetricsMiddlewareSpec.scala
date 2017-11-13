@@ -13,7 +13,9 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
 
   override protected def afterEach(): Unit = CollectorRegistry.defaultRegistry.clear()
 
-  def testService: HttpService[IO] = HttpService[IO] {
+  val registry: CollectorRegistry = CollectorRegistry.defaultRegistry
+
+  val testService: HttpService[IO] = HttpService[IO] {
     case GET -> Root => Ok()
   }
 
@@ -23,63 +25,67 @@ class MetricsMiddlewareSpec extends FlatSpec with Matchers with Http4sDsl[IO] wi
 
   val testRequest: Request[IO] = Request[IO](Method.GET, Uri.uri("/"))
 
-  it should "count the total http requests with service name and status" in {
-    val registry = new CollectorRegistry
-
+  it should "count the total http requests with given default service name and status" in {
     val requests = 25
     val metrics  = MetricsMiddleware(registry = registry)
     List
       .fill(requests)(testRequest)
-      .traverse(metrics.collect("countTest", testService).orNotFound(_))
+      .traverse(metrics.collect(testService).orNotFound(_))
       .unsafeRunSync()
 
-    registry.getSampleValue("http_requests_total", Array("service", "status"), Array("countTest", "200")) shouldBe requests.toDouble
+    registry.getSampleValue("http_requests_total", Array("path", "status"), Array("unknown", "200")) shouldBe requests.toDouble
   }
 
   it should "count request that fail" in {
-    val registry = new CollectorRegistry
-
     val metrics = MetricsMiddleware(registry = registry)
 
-    assertThrows[Exception](metrics.collect("countTest", failingTestService).orNotFound(testRequest).unsafeRunSync())
-    registry.getSampleValue("http_requests_total", Array("service", "status"), Array("countTest", "500")) shouldBe 1.0
+    assertThrows[Exception](metrics.collect(failingTestService).orNotFound(testRequest).unsafeRunSync())
+    registry.getSampleValue("http_requests_total", Array("path", "status"), Array("unknown", "500")) shouldBe 1.0
   }
 
   it should "measure a response time for a request" in {
-    val registry = new CollectorRegistry
-
     val metrics = MetricsMiddleware(registry = registry)
 
-    metrics.collect("timingTest", testService).orNotFound(testRequest).unsafeRunSync()
+    metrics.collect(testService).orNotFound(testRequest).unsafeRunSync()
 
     registry
-      .getSampleValue("http_requests_duration_seconds_sum", Array("service", "status"), Array("timingTest", "200"))
+      .getSampleValue("http_requests_duration_seconds_sum", Array("path", "status"), Array("unknown", "200"))
       .toDouble should be > 0.0
   }
 
   it should "measure a response time if the service throws an exception" in {
-    val registry = new CollectorRegistry
-
     val metrics = MetricsMiddleware(registry = registry)
 
-    assertThrows[Exception](
-      metrics.collect("timingThrowTest", failingTestService).orNotFound(testRequest).unsafeRunSync())
+    assertThrows[Exception](metrics.collect(failingTestService).orNotFound(testRequest).unsafeRunSync())
     registry
-      .getSampleValue("http_requests_duration_seconds_sum",
-                      Array("service", "status"),
-                      Array("timingThrowTest", "500"))
+      .getSampleValue("http_requests_duration_seconds_sum", Array("path", "status"), Array("unknown", "500"))
       .toDouble should be > 0.0
   }
 
-  it should "count request on multiple services" in {
-    val registry = new CollectorRegistry
+  it should "add the path name if it is whitelisted" in {
 
-    val metrics = MetricsMiddleware(registry = registry)
+    val req: Request[IO] = Request[IO](Method.GET, Uri.uri("/test"))
+    val service: HttpService[IO] = HttpService[IO] {
+      case GET -> Root / "test" => Ok()
+    }
 
-    metrics.collect("service1", testService).orNotFound(testRequest).unsafeRunSync()
-    metrics.collect("service2", testService).orNotFound(testRequest).unsafeRunSync()
+    val path: Path = Root / "test"
+    val metrics    = MetricsMiddleware(paths = List(path))
+    metrics.collect(service).orNotFound(req).unsafeRunSync()
 
-    registry.getSampleValue("http_requests_total", Array("service", "status"), Array("service1", "200")) shouldBe 1.0
-    registry.getSampleValue("http_requests_total", Array("service", "status"), Array("service2", "200")) shouldBe 1.0
+    registry.getSampleValue("http_requests_total", Array("path", "status"), Array("/test", "200")) shouldBe 1.0
+  }
+
+  it should "add the path name for more complex requests" in {
+    val req: Request[IO] = Request[IO](Method.GET, Uri.uri("/test/more/23?q=whatever"))
+    val service: HttpService[IO] = HttpService[IO] {
+      case GET -> Root / "test" / "more" / _ => Ok()
+    }
+
+    val path: Path = Root / "test" / "more"
+    val metrics    = MetricsMiddleware(paths = List(path))
+    metrics.collect(service).orNotFound(req).unsafeRunSync()
+
+    registry.getSampleValue("http_requests_total", Array("path", "status"), Array("/test/more", "200")) shouldBe 1.0
   }
 }
