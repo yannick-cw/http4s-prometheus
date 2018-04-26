@@ -5,7 +5,7 @@ lazy val root = (project in file(".")).settings(
     List(
       organization := "io.github.yannick-cw",
       scalaVersion := "2.12.4",
-      version := "0.1.0",
+      version := "0.1.1",
       scalafmtVersion := "1.0.0-RC4",
       scalafmtOnCompile := true,
       scalacOptions := compilerFlags

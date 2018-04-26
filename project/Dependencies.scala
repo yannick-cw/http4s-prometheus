@@ -1,7 +1,7 @@
 import sbt._
 
 object Dependencies {
-  val http4sVersion             = "0.18.0-M5"
+  val http4sVersion             = "0.18.8"
   val scalatestVersion          = "3.0.3"
   private val prometheusVersion = "0.1.0"
 
